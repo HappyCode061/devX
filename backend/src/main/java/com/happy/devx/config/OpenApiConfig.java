@@ -1,0 +1,21 @@
+package com.happy.devx.config;
+
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class OpenApiConfig {
+
+    @Bean
+    public OpenAPI devxAssistantOpenApi() {
+        return new OpenAPI()
+                .info(new Info()
+                        .title("DevX Enterprise Assistant API")
+                        .description("Phase 1 backend APIs for document registration, ingestion, and health checks.")
+                        .version("v1")
+                        .contact(new Contact().name("Happy Shop Team")));
+    }
+}

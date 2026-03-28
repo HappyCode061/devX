@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: devx-assistant
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/devx_assistant}
+    username: ${DB_USERNAME:devx}
+    password: ${DB_PASSWORD:devx}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /api-docs
+
+logging:
+  level:
+    com.happy.devx: INFO
+
+devx:
+  ingestion:
+    enabled: true
+    sample-knowledge-base-path: sample-knowledge-base
