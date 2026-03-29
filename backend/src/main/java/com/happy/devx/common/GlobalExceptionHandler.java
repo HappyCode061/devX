@@ -45,12 +45,7 @@ public class GlobalExceptionHandler {
                 .toList();
 
         return ResponseEntity.badRequest()
-                .body(buildErrorResponse(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed",
-                        request.getRequestURI(),
-                        details
-                ));
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation failed", request.getRequestURI(), details));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -64,12 +59,7 @@ public class GlobalExceptionHandler {
                 .toList();
 
         return ResponseEntity.badRequest()
-                .body(buildErrorResponse(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed",
-                        request.getRequestURI(),
-                        details
-                ));
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation failed", request.getRequestURI(), details));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -90,10 +80,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleUnexpectedException(
-            Exception exception,
-            HttpServletRequest request
-    ) {
+    public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception exception, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(buildErrorResponse(
                         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -103,20 +90,8 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    private ApiErrorResponse buildErrorResponse(
-            HttpStatus status,
-            String message,
-            String path,
-            List<String> details
-    ) {
-        return new ApiErrorResponse(
-                OffsetDateTime.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                message,
-                path,
-                details
-        );
+    private ApiErrorResponse buildErrorResponse(HttpStatus status, String message, String path, List<String> details) {
+        return new ApiErrorResponse(OffsetDateTime.now(), status.value(), status.getReasonPhrase(), message, path, details);
     }
 
     private String formatFieldError(FieldError fieldError) {

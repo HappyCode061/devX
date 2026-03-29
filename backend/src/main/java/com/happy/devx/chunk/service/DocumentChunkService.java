@@ -55,6 +55,11 @@ public class DocumentChunkService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public boolean hasChunks(UUID documentId) {
+        return documentChunkRepository.countByDocumentId(documentId) > 0;
+    }
+
     @Transactional
     public int generateChunksForDocument(KnowledgeDocument document, String content) {
         if (!chunkingProperties.enabled()) {
@@ -69,6 +74,22 @@ public class DocumentChunkService {
 
         if (documentChunkRepository.countByDocumentId(document.getId()) > 0) {
             log.info("Skipping chunk generation because chunks already exist for document id={}", document.getId());
+            return 0;
+        }
+
+        return saveChunks(document, content);
+    }
+
+    @Transactional
+    public int replaceChunksForDocument(KnowledgeDocument document, String content) {
+        documentChunkRepository.deleteByDocumentId(document.getId());
+        documentChunkRepository.flush();
+        log.info("Deleted existing chunks for document id={}", document.getId());
+        return saveChunks(document, content);
+    }
+
+    private int saveChunks(KnowledgeDocument document, String content) {
+        if (content == null || content.isBlank()) {
             return 0;
         }
 

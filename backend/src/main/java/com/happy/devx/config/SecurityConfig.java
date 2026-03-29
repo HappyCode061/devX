@@ -20,7 +20,13 @@ public class SecurityConfig {
                                 "/api/health",
                                 "/api/documents",
                                 "/api/documents/**",
-                                "/api/ingestion/scan"
+                                "/api/chunks/search",
+                                "/api/retrieval/search",
+                                "/api/chat/ask",
+                                "/api/ingestion/scan",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

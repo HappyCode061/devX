@@ -14,7 +14,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("DevX Enterprise Assistant API")
-                        .description("Phase 1 backend APIs for document registration, ingestion, and health checks.")
+                        .description("Phase 1 and Phase 2 backend APIs for document registration, ingestion, and chunking.")
                         .version("v1")
                         .contact(new Contact().name("Happy Shop Team")));
     }

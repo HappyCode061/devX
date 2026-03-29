@@ -1,5 +1,6 @@
 package com.happy.devx.ingestion.runner;
 
+import com.happy.devx.ingestion.dto.IngestionScanResponse;
 import com.happy.devx.ingestion.service.SampleKnowledgeBaseIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,12 +18,13 @@ public class SampleKnowledgeBaseIngestionRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         log.info("Triggering sample knowledge base ingestion at startup");
-        var response = sampleKnowledgeBaseIngestionService.ingestSampleKnowledgeBase();
+        IngestionScanResponse response = sampleKnowledgeBaseIngestionService.ingestSampleKnowledgeBase();
         log.info(
-                "Startup ingestion summary: filesFound={}, documentsCreated={}, documentsSkipped={}",
+                "Startup ingestion summary: filesFound={}, documentsCreated={}, documentsSkipped={}, chunksCreated={}",
                 response.filesFound(),
                 response.documentsCreated(),
-                response.documentsSkipped()
+                response.documentsSkipped(),
+                response.chunksCreated()
         );
     }
 }

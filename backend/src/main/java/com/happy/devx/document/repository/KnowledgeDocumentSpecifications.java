@@ -11,12 +11,10 @@ public final class KnowledgeDocumentSpecifications {
     }
 
     public static Specification<KnowledgeDocument> hasOrigin(DocumentOrigin origin) {
-        return (root, query, criteriaBuilder) ->
-                origin == null ? criteriaBuilder.conjunction() : criteriaBuilder.equal(root.get("origin"), origin);
+        return (root, query, cb) -> origin == null ? cb.conjunction() : cb.equal(root.get("origin"), origin);
     }
 
     public static Specification<KnowledgeDocument> hasStatus(DocumentStatus status) {
-        return (root, query, criteriaBuilder) ->
-                status == null ? criteriaBuilder.conjunction() : criteriaBuilder.equal(root.get("status"), status);
+        return (root, query, cb) -> status == null ? cb.conjunction() : cb.equal(root.get("status"), status);
     }
 }

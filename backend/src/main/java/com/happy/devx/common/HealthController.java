@@ -10,9 +10,6 @@ public class HealthController {
 
     @GetMapping("/api/health")
     public Map<String, String> health() {
-        return Map.of(
-                "status", "UP",
-                "phase", "Phase 1"
-        );
+        return Map.of("status", "UP", "phase", "Phase 2");
     }
 }

@@ -36,3 +36,7 @@ devx:
   ingestion:
     enabled: true
     sample-knowledge-base-path: sample-knowledge-base
+  chunking:
+    enabled: true
+    target-size: 500
+    overlap-size: 100

@@ -1,5 +1,8 @@
 package com.happy.devx.document.controller;
 
+import com.happy.devx.chunk.dto.DocumentChunkResponse;
+import com.happy.devx.chunk.dto.RechunkDocumentResponse;
+import com.happy.devx.chunk.service.DocumentChunkService;
 import com.happy.devx.document.dto.CreateDocumentRequest;
 import com.happy.devx.document.dto.DocumentResponse;
 import com.happy.devx.document.dto.PagedDocumentResponse;
@@ -7,22 +10,24 @@ import com.happy.devx.document.dto.UpdateDocumentStatusRequest;
 import com.happy.devx.document.entity.DocumentOrigin;
 import com.happy.devx.document.entity.DocumentStatus;
 import com.happy.devx.document.service.DocumentService;
+import com.happy.devx.ingestion.service.SampleKnowledgeBaseIngestionService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @Validated
@@ -32,6 +37,8 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentChunkService documentChunkService;
+    private final SampleKnowledgeBaseIngestionService sampleKnowledgeBaseIngestionService;
 
     @GetMapping
     public PagedDocumentResponse getDocuments(
@@ -48,11 +55,18 @@ public class DocumentController {
         return documentService.getDocumentById(id);
     }
 
+    @GetMapping("/{id}/chunks")
+    public List<DocumentChunkResponse> getDocumentChunks(@PathVariable UUID id) {
+        return documentChunkService.getChunksForDocument(id);
+    }
+
+    @PostMapping("/{id}/rechunk")
+    public RechunkDocumentResponse rechunkDocument(@PathVariable UUID id) {
+        return sampleKnowledgeBaseIngestionService.rechunkSampleKnowledgeBaseDocument(id);
+    }
+
     @PatchMapping("/{id}/status")
-    public DocumentResponse updateDocumentStatus(
-            @PathVariable UUID id,
-            @Valid @RequestBody UpdateDocumentStatusRequest request
-    ) {
+    public DocumentResponse updateDocumentStatus(@PathVariable UUID id, @Valid @RequestBody UpdateDocumentStatusRequest request) {
         return documentService.updateDocumentStatus(id, request);
     }
 

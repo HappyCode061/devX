@@ -37,6 +37,9 @@ public class KnowledgeDocument {
     @Column(nullable = false, length = 50)
     private DocumentOrigin origin;
 
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

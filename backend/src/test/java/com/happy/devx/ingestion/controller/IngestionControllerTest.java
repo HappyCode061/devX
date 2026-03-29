@@ -29,13 +29,14 @@ class IngestionControllerTest {
     @Test
     void scansSampleKnowledgeBase() throws Exception {
         given(sampleKnowledgeBaseIngestionService.ingestSampleKnowledgeBase())
-                .willReturn(new IngestionScanResponse(3, 2, 1));
+                .willReturn(new IngestionScanResponse(3, 2, 1,5));
 
         mockMvc.perform(post("/api/ingestion/scan"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.filesFound").value(3))
                 .andExpect(jsonPath("$.documentsCreated").value(2))
-                .andExpect(jsonPath("$.documentsSkipped").value(1));
+                .andExpect(jsonPath("$.documentsSkipped").value(1))
+                .andExpect(jsonPath("$.chunksCreated").value(5));
     }
 }

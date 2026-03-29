@@ -38,10 +38,8 @@ public class DocumentService {
         Specification<KnowledgeDocument> specification = Specification
                 .where(KnowledgeDocumentSpecifications.hasOrigin(origin))
                 .and(KnowledgeDocumentSpecifications.hasStatus(status));
-        return PagedDocumentResponse.from(
-                knowledgeDocumentRepository.findAll(specification, pageable)
-                        .map(DocumentResponse::from)
-        );
+
+        return PagedDocumentResponse.from(knowledgeDocumentRepository.findAll(specification, pageable).map(DocumentResponse::from));
     }
 
     @Transactional(readOnly = true)
@@ -58,9 +56,7 @@ public class DocumentService {
         String normalizedSourcePath = request.sourcePath().trim();
 
         log.info("Creating document metadata for sourcePath={}", normalizedSourcePath);
-
         if (knowledgeDocumentRepository.existsBySourcePath(normalizedSourcePath)) {
-            log.warn("Document creation rejected because sourcePath already exists: {}", normalizedSourcePath);
             throw new ResponseStatusException(CONFLICT, "A document with this sourcePath already exists");
         }
 
@@ -70,22 +66,14 @@ public class DocumentService {
         document.setStatus(DocumentStatus.DISCOVERED);
         document.setOrigin(DocumentOrigin.MANUAL);
 
-        DocumentResponse savedDocument = DocumentResponse.from(knowledgeDocumentRepository.save(document));
-        log.info("Created document id={} sourcePath={}", savedDocument.id(), savedDocument.sourcePath());
-        return savedDocument;
+        return DocumentResponse.from(knowledgeDocumentRepository.save(document));
     }
 
     @Transactional
     public DocumentResponse updateDocumentStatus(UUID id, UpdateDocumentStatusRequest request) {
-        log.info("Updating document status id={} status={}", id, request.status());
-
         KnowledgeDocument document = knowledgeDocumentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Document not found"));
-
         document.setStatus(request.status());
-
-        DocumentResponse updatedDocument = DocumentResponse.from(knowledgeDocumentRepository.save(document));
-        log.info("Updated document status id={} status={}", updatedDocument.id(), updatedDocument.status());
-        return updatedDocument;
+        return DocumentResponse.from(knowledgeDocumentRepository.save(document));
     }
 }
