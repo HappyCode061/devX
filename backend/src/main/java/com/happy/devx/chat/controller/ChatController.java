@@ -19,6 +19,6 @@ public class ChatController {
 
     @PostMapping("/ask")
     public ChatAskResponse ask(@Valid @RequestBody ChatAskRequest request) {
-        return chatService.ask(request.question(), request.retrievalLimit());
+        return chatService.ask(request.question(), request.retrievalLimit(), request.includeDebug());
     }
 }

@@ -2,6 +2,13 @@ package com.happy.devx.chat.service;
 
 import com.happy.devx.chat.dto.ChatAskResponse;
 import com.happy.devx.chat.dto.ChatCitationResponse;
+import com.happy.devx.chat.dto.ChatDebugResponse;
+import com.happy.devx.chat.dto.ChatDebugSourceResponse;
+import com.happy.devx.llm.config.LlmProperties;
+import com.happy.devx.llm.dto.LlmGenerationRequest;
+import com.happy.devx.llm.dto.LlmGenerationResponse;
+import com.happy.devx.llm.service.LlmGenerationService;
+import com.happy.devx.llm.service.LlmPromptBuilder;
 import com.happy.devx.retrieval.dto.RetrievalSearchResponse;
 import com.happy.devx.retrieval.dto.RetrievedDocumentResponse;
 import com.happy.devx.retrieval.service.RetrievalService;
@@ -18,87 +25,40 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatService {
 
-    private static final int MAX_DOCUMENTS_IN_ANSWER = 3;
-    private static final int MAX_CHUNKS_PER_DOCUMENT_IN_ANSWER = 1;
-    private static final int MAX_CHARS_PER_CHUNK_EXCERPT = 240;
     private static final int MAX_CITATIONS = 8;
-    private static final String NL = "\n";
+    private static final int MAX_DOCUMENTS_FOR_CITATIONS = 4;
+    private static final int MAX_CHUNKS_PER_DOCUMENT_FOR_CITATIONS = 2;
+    private static final int MAX_PROMPT_PREVIEW_CHARS = 1200;
 
     private final RetrievalService retrievalService;
+    private final LlmGenerationService llmGenerationService;
+    private final LlmPromptBuilder llmPromptBuilder;
+    private final LlmProperties llmProperties;
 
     /**
-     * Builds a grounded draft chat response from retrieval output without using an LLM.
+     * Builds a grounded chat response from retrieval output through the configured generation service.
      */
     @Transactional(readOnly = true)
-    public ChatAskResponse ask(String question, int retrievalLimit) {
-        log.info("Chat ask question='{}' retrievalLimit={}", question, retrievalLimit);
+    public ChatAskResponse ask(String question, int retrievalLimit, boolean includeDebug) {
+        log.info("Chat ask question='{}' retrievalLimit={} includeDebug={}", question, retrievalLimit, includeDebug);
 
         RetrievalSearchResponse retrieval = retrievalService.search(question, retrievalLimit);
-        String answer = buildDraftAnswer(question, retrieval);
+        LlmGenerationResponse generation = llmGenerationService.generateAnswer(new LlmGenerationRequest(question, retrieval));
         List<ChatCitationResponse> citations = buildCitations(retrieval.documents());
+        ChatDebugResponse debug = includeDebug ? buildDebugResponse(retrieval, generation.fallbackUsed(), question) : null;
 
         return new ChatAskResponse(
                 question,
-                answer,
+                generation.answer(),
+                generation.provider(),
+                generation.model(),
+                generation.fallbackUsed(),
                 retrieval.matchedTerms(),
                 retrieval.matchedDocumentCount(),
                 retrieval.matchedChunkCount(),
-                citations
+                citations,
+                debug
         );
-    }
-
-    /**
-     * Shapes a readable, bounded answer for Postman and early UI testing.
-     */
-    private String buildDraftAnswer(String question, RetrievalSearchResponse retrieval) {
-        if (retrieval.documents().isEmpty()) {
-            return "I could not find matching knowledge base context for that question yet.";
-        }
-
-        StringBuilder builder = new StringBuilder();
-        builder.append("Question: ").append(question).append(NL).append(NL);
-        builder.append("Summary:").append(NL);
-        builder.append("I found relevant knowledge base context in ").append(retrieval.matchedDocumentCount())
-                .append(" document(s) across ").append(retrieval.matchedChunkCount()).append(" chunk(s).")
-                .append(" The strongest matches are summarized below.").append(NL);
-
-        if (!retrieval.matchedTerms().isEmpty()) {
-            builder.append("Matched terms: ").append(String.join(", ", retrieval.matchedTerms())).append(NL);
-        }
-
-        builder.append(NL);
-
-        builder.append("Key findings:").append(NL);
-
-        retrieval.documents().stream()
-                .limit(MAX_DOCUMENTS_IN_ANSWER)
-                .forEach(document -> {
-            builder.append("- ").append(document.documentTitle())
-                    .append(": ");
-
-            document.matchedChunks().stream()
-                    .limit(MAX_CHUNKS_PER_DOCUMENT_IN_ANSWER)
-                    .forEach(chunk -> builder.append(abbreviate(chunk.content())));
-
-            if (!document.matchedTerms().isEmpty()) {
-                builder.append(" (matched: ").append(String.join(", ", document.matchedTerms())).append(")");
-            }
-
-            builder.append(NL);
-                });
-
-        builder.append(NL).append("Sources used:").append(NL);
-        retrieval.documents().stream()
-                .limit(MAX_DOCUMENTS_IN_ANSWER)
-                .forEach(document -> builder.append("- ")
-                        .append(document.documentTitle())
-                        .append(" (")
-                        .append(document.documentSourcePath())
-                        .append(")")
-                        .append(NL));
-
-        builder.append(NL).append("This is a retrieval-backed draft, not a model-generated final answer.");
-        return builder.toString().trim();
     }
 
     /**
@@ -107,8 +67,11 @@ public class ChatService {
     private List<ChatCitationResponse> buildCitations(List<RetrievedDocumentResponse> documents) {
         List<ChatCitationResponse> citations = new ArrayList<>();
 
-        for (RetrievedDocumentResponse document : documents) {
-            document.matchedChunks().forEach(chunk -> {
+        documents.stream()
+                .limit(MAX_DOCUMENTS_FOR_CITATIONS)
+                .forEach(document -> document.matchedChunks().stream()
+                        .limit(MAX_CHUNKS_PER_DOCUMENT_FOR_CITATIONS)
+                        .forEach(chunk -> {
                 if (citations.size() >= MAX_CITATIONS) {
                     return;
                 }
@@ -122,29 +85,42 @@ public class ChatService {
                             chunk.chunkIndex()
                     )
                 );
-            });
-        }
+                        }));
 
         return citations;
     }
 
     /**
-     * Normalizes raw chunk text into a short excerpt that reads cleanly in API responses.
+     * Provides optional observability details for A/B testing fallback and provider-backed chat responses.
      */
-    private String abbreviate(String content) {
-        String normalized = content
-                .replaceAll("(?m)^#+\\s*", "")
-                .replaceAll("(?m)^-\\s*", "")
-                .replace("\n", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-        if (normalized.length() <= MAX_CHARS_PER_CHUNK_EXCERPT) {
-            return normalized;
+    private ChatDebugResponse buildDebugResponse(
+            RetrievalSearchResponse retrieval,
+            boolean fallbackUsed,
+            String question
+    ) {
+        List<RetrievedDocumentResponse> selectedDocuments = llmPromptBuilder.selectContextDocuments(retrieval, llmProperties);
+        String promptPreview = llmPromptBuilder.buildUserPrompt(question, retrieval, llmProperties);
+        if (promptPreview.length() > MAX_PROMPT_PREVIEW_CHARS) {
+            promptPreview = promptPreview.substring(0, MAX_PROMPT_PREVIEW_CHARS) + "...";
         }
-        int cutIndex = normalized.lastIndexOf(' ', MAX_CHARS_PER_CHUNK_EXCERPT - 3);
-        if (cutIndex < MAX_CHARS_PER_CHUNK_EXCERPT / 2) {
-            cutIndex = MAX_CHARS_PER_CHUNK_EXCERPT - 3;
-        }
-        return normalized.substring(0, cutIndex) + "...";
+
+        List<ChatDebugSourceResponse> selectedSources = selectedDocuments.stream()
+                .map(document -> new ChatDebugSourceResponse(
+                        document.documentId(),
+                        document.documentTitle(),
+                        document.documentSourcePath(),
+                        document.matchedTerms(),
+                        document.matchedChunks().stream()
+                                .map(chunk -> chunk.chunkIndex())
+                                .toList()
+                ))
+                .toList();
+
+        return new ChatDebugResponse(
+                fallbackUsed ? "fallback" : "provider",
+                promptPreview,
+                promptPreview.length(),
+                selectedSources
+        );
     }
 }

@@ -37,6 +37,7 @@ public class RetrievalService {
         log.info("Retrieval search query='{}' limit={}", query, limit);
 
         List<String> searchTerms = extractSearchTerms(query);
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase();
         log.info("Retrieval normalized terms={}", searchTerms);
 
         Map<UUID, ChunkSearchResponse> uniqueChunkMatches = new LinkedHashMap<>();
@@ -68,11 +69,14 @@ public class RetrievalService {
                 .stream()
                 .map(entry -> RetrievedDocumentResponse.from(
                         entry.getKey(),
-                        entry.getValue(),
+                        sortChunksForDocument(entry.getValue(), searchTerms, normalizedQuery),
                         matchedTermsByDocument.getOrDefault(entry.getKey(), new LinkedHashSet<>()).stream().toList()
                 ))
                 .sorted(Comparator
-                        .comparingInt(RetrievedDocumentResponse::matchedChunkCount).reversed()
+                        .comparingInt((RetrievedDocumentResponse document) -> titleAndPathMatches(document, searchTerms)).reversed()
+                        .thenComparingDouble(document -> termCoverage(document, searchTerms)).reversed()
+                        .thenComparingInt((RetrievedDocumentResponse document) -> containsExactPhrase(document, normalizedQuery) ? 1 : 0).reversed()
+                        .thenComparingInt(RetrievedDocumentResponse::matchedChunkCount).reversed()
                         .thenComparingInt(this::earliestChunkIndex)
                         .thenComparing(RetrievedDocumentResponse::documentTitle))
                 .toList();
@@ -131,5 +135,63 @@ public class RetrievalService {
                 .mapToInt(chunk -> chunk.chunkIndex())
                 .min()
                 .orElse(Integer.MAX_VALUE);
+    }
+
+    private List<ChunkSearchResponse> sortChunksForDocument(
+            List<ChunkSearchResponse> chunks,
+            List<String> searchTerms,
+            String normalizedQuery
+    ) {
+        return chunks.stream()
+                .sorted(Comparator
+                        .comparingInt((ChunkSearchResponse chunk) -> countMatchingTerms(chunk.content(), searchTerms)).reversed()
+                        .thenComparingInt(chunk -> containsIgnoreCase(chunk.content(), normalizedQuery) ? 1 : 0).reversed()
+                        .thenComparingInt(ChunkSearchResponse::chunkIndex))
+                .toList();
+    }
+
+    private int titleAndPathMatches(RetrievedDocumentResponse document, List<String> searchTerms) {
+        String title = document.documentTitle().toLowerCase();
+        String path = document.documentSourcePath().toLowerCase();
+        int matches = 0;
+        for (String term : searchTerms) {
+            if (term.isBlank()) {
+                continue;
+            }
+            if (title.contains(term) || path.contains(term)) {
+                matches++;
+            }
+        }
+        return matches;
+    }
+
+    private double termCoverage(RetrievedDocumentResponse document, List<String> searchTerms) {
+        long meaningfulTerms = searchTerms.stream().filter(term -> !term.isBlank()).count();
+        if (meaningfulTerms == 0) {
+            return 0;
+        }
+        return (double) document.matchedTerms().size() / meaningfulTerms;
+    }
+
+    private boolean containsExactPhrase(RetrievedDocumentResponse document, String normalizedQuery) {
+        if (normalizedQuery.isBlank()) {
+            return false;
+        }
+        return document.matchedChunks().stream()
+                .anyMatch(chunk -> containsIgnoreCase(chunk.content(), normalizedQuery));
+    }
+
+    private int countMatchingTerms(String content, List<String> searchTerms) {
+        int matches = 0;
+        for (String term : searchTerms) {
+            if (!term.isBlank() && containsIgnoreCase(content, term)) {
+                matches++;
+            }
+        }
+        return matches;
+    }
+
+    private boolean containsIgnoreCase(String content, String term) {
+        return content != null && term != null && !term.isBlank() && content.toLowerCase().contains(term.toLowerCase());
     }
 }

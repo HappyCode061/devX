@@ -1,6 +1,6 @@
 # devX Enterprise Assistant
 
-The current setup includes the Phase 1 backend foundation and the Phase 2 retrieval pipeline for the DevX Enterprise Assistant. The backend can register documents, ingest sample knowledge-base files, generate chunks, search and rank retrieval results, and return grounded draft chat responses with citations.
+The current setup includes the Phase 1 backend foundation, the Phase 2 retrieval pipeline, and the Phase 3 provider-extensible LLM integration layer for the DevX Enterprise Assistant. The backend can register documents, ingest sample knowledge-base files, generate chunks, search and rank retrieval results, and return grounded chat responses with citations through either a fallback draft mode or a real LLM provider.
 
 ## Repository Layout
 
@@ -49,6 +49,25 @@ mvn spring-boot:run
 ```
 
 Then open [http://localhost:8080/api/health](http://localhost:8080/api/health).
+
+### Environment configuration
+
+Copy values from `.env.example` into your local environment as needed:
+
+```bash
+export DB_URL=jdbc:postgresql://localhost:5432/devx_assistant
+export DB_USERNAME=devx
+export DB_PASSWORD=devx
+export LLM_API_KEY=your_api_key_here
+```
+
+The repository defaults are safe:
+
+- `devx.llm.enabled=false`
+- `devx.llm.provider=draft`
+- `devx.llm.model=retrieval-draft-v1`
+
+That means the app starts in fallback draft mode unless you explicitly enable a real provider.
 
 ### Sample knowledge base
 
@@ -101,14 +120,53 @@ curl "http://localhost:8080/api/chunks/search?query=postgresql&limit=5"
 curl "http://localhost:8080/api/retrieval/search?query=how%20to%20setup%20postgres&limit=5"
 ```
 
-6. Ask the grounded draft chat endpoint:
+6. Ask the grounded chat endpoint:
 
 ```bash
 curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
   -d '{
     "question": "how to setup postgres",
-    "retrievalLimit": 5
+    "retrievalLimit": 5,
+    "includeDebug": false
+  }'
+```
+
+### Dual-terminal comparison workflow
+
+Run one instance in fallback mode:
+
+```bash
+cd backend
+mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=8080 --devx.llm.enabled=false"
+```
+
+Run a second instance in OpenAI mode:
+
+```bash
+cd backend
+LLM_API_KEY=your_api_key_here mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=8081 --devx.llm.enabled=true --devx.llm.provider=openai --devx.llm.model=gpt-5-nano --devx.llm.base-url=https://api.openai.com/v1"
+```
+
+Compare the two with debug enabled:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "how to setup postgres",
+    "retrievalLimit": 5,
+    "includeDebug": true
+  }'
+```
+
+```bash
+curl -X POST http://localhost:8081/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "how to setup postgres",
+    "retrievalLimit": 5,
+    "includeDebug": true
   }'
 ```
 
@@ -127,7 +185,10 @@ When the app is running, open:
 - `status` tracks the document lifecycle: `DISCOVERED`, `INGESTED`, `FAILED`.
 - Chunking is character-based with overlap and paragraph-aware boundaries when possible.
 - Retrieval currently uses keyword-based matching, simple query normalization, and document ranking.
-- Chat currently returns a retrieval-backed draft answer with citations; it is not yet a real LLM-generated answer.
+- Chat can now run in two modes:
+  - fallback draft mode
+  - provider-backed mode through the extensible LLM layer
+- Debug mode can optionally expose the selected sources and prompt preview for A/B testing.
 
 ### Phase status
 
@@ -144,8 +205,15 @@ Phase 2 complete:
 - retrieval grouping and ranking
 - grounded draft chat flow
 
-Phase 3 deferred:
-- real LLM integration
-- prompt construction
+Phase 3 complete:
+- provider-extensible LLM abstraction
+- OpenAI provider integration
+- prompt builder and context budgeting
+- debug prompt preview for comparison testing
+- provider-aware chat response metadata
+
+Phase 3 follow-up candidates:
+- stronger context scoring
+- prompt/citation alignment refinement
 - semantic retrieval / embeddings
-- answer generation with model-backed reasoning
+- second provider integration

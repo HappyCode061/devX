@@ -9,6 +9,7 @@ public record ChatAskRequest(
         String question,
         @Min(value = 1, message = "retrievalLimit must be at least 1")
         @Max(value = 10, message = "retrievalLimit must be at most 10")
-        int retrievalLimit
+        int retrievalLimit,
+        boolean includeDebug
 ) {
 }

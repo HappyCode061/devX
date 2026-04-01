@@ -33,10 +33,12 @@ logging:
     com.happy.devx: INFO
 
 devx:
-  ingestion:
-    enabled: true
-    sample-knowledge-base-path: sample-knowledge-base
-  chunking:
-    enabled: true
-    target-size: 500
-    overlap-size: 100
+  llm:
+    enabled: false
+    provider: draft
+    model: retrieval-draft-v1
+    base-url: "https://api.openai.com/v1"
+    api-key: ${LLM_API_KEY:}
+    max-context-characters: 2000
+    max-context-documents: 3
+    max-context-chunks-per-document: 1

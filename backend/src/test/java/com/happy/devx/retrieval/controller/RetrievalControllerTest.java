@@ -43,7 +43,7 @@ class RetrievalControllerTest {
         RetrievedDocumentResponse document = new RetrievedDocumentResponse(
                 UUID.fromString("22222222-2222-2222-2222-222222222222"),
                 "Onboarding Guide",
-                "sample-knowledge-base/onboarding-guide.md",
+                "sample-knowledge-base/onboarding-guide.md",List.of("postgresql", "database"),
                 1,
                 List.of(chunk)
         );
