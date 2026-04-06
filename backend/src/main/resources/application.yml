@@ -1,6 +1,8 @@
 spring:
   application:
     name: devx-assistant
+  profiles:
+    active: local
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/devx_assistant}
     username: ${DB_USERNAME:devx}
